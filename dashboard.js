@@ -57,7 +57,7 @@ const L_CFG = {
         sp: "customfield_10002", 
         team: "customfield_10012" 
     },
-    STATUS_DONE: ["gesloten", "done", "closed", "resolved", "opgelost", "klaar", "gedaan"],
+    STATUS_DONE: ["gesloten", "done", "closed", "resolved", "opgelost", "klaar", "gereed", "afgewezen", "Afgewezen", "Won't Do", "gedaan"],
     TYPE_BUG: ["bug", "defect", "fout"],
     TYPE_STORY: ["story", "verhaal", "user story", "verbetering", "technical story", "improvement"],
     TYPE_TASK: ["task", "taak", "sub-task", "subtaak"],
