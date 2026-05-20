@@ -1,80 +1,56 @@
 // ============================================================
 // Scrum Flow API Dashboard - Centraal Beheerd
-// Inclusief ingebouwde theorie en adviesmodule (Standalone)
 // ============================================================
 
-// --- 1. INGEBOUWDE HANDLEIDING THEORIE ---
-window.LUCAS_MANUAL_CONTENT = `
-    <div style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <h3 style="color:#172B4D; margin-bottom:10px;">Flow Metrics Begrijpen</h3>
-        <p style="margin-top:0;">Flow metrics helpen Agile teams om voorspelbaarder te worden door te kijken naar de tijd die werk in beslag neemt, in plaats van de geschatte uren of punten.</p>
+// --- 1. HANDLEIDING MODULE ---
+// Laadt manual.js dynamisch. Gebruikers hoeven niets aan te passen.
+(function() {
+    const MANUAL_URL = 'https://www.dutchscrum.nl/jira/manual.js';
 
-        <div id="man-lt" class="man-section" style="margin-top:20px;">
-            <h4 style="color:#0052CC; margin-bottom:5px;">Lead Time</h4>
-            <p style="font-size:12px; margin-top:0;">De totale tijd (in kalenderdagen) vanaf het moment dat een issue wordt <strong>aangemaakt</strong> tot het moment dat het is <strong>opgelost</strong> (status Done).<br><br><em>Tip: Een extreem hoge Lead Time wijst vaak op issues die lange tijd onbehandeld op een backlog hebben gestaan.</em></p>
-        </div>
+    // Tijdelijke fallback totdat manual.js geladen is
+    window.LUCAS_MANUAL_CONTENT = null;
 
-        <div id="man-ct" class="man-section" style="margin-top:20px;">
-            <h4 style="color:#6554C0; margin-bottom:5px;">Cycle Time</h4>
-            <p style="font-size:12px; margin-top:0;">De tijd vanaf de eerste keer dat de status wijzigt naar 'In Progress' (Start Development) tot de afronding (Done). Dit weerspiegelt de daadwerkelijke bewerkingstijd van het team, inclusief wachttijden voor reviews en deployments.</p>
-        </div>
+    const script = document.createElement('script');
+    script.src = MANUAL_URL;
+    script.onerror = function() {
+        window.LUCAS_MANUAL_CONTENT = '<p style="color:#FF5630;">Handleiding kon niet worden geladen. Controleer je netwerk/VPN.</p>';
+    };
+    document.head.appendChild(script);
+})();
+// --- 2. ADVIES ENGINE ---
+// Laadt advies.js dynamisch vanuit dezelfde locatie als dashboard.js.
+// Gebruikers hoeven alleen dashboard.js te laden; advies.js wordt automatisch meegenomen.
+(function() {
+    const ADVIES_URL = 'https://www.dutchscrum.nl/jira/advies.js';
 
-        <div id="man-fe" class="man-section" style="margin-top:20px;">
-            <h4 style="color:#0052CC; margin-bottom:5px;">Flow Efficiency</h4>
-            <p style="font-size:12px; margin-top:0;">Hoeveel procent van de Lead Time bestond daadwerkelijk uit Cycle Time?<br><strong>Formule:</strong> <code>(Cycle Time / Lead Time) * 100%</code><br><br><em>In de industrie is een Flow Efficiency van 15% tot 40% al beschouwd als een uiterst efficiënt, gezond team. Alles onder de 10% betekent dat het werk voornamelijk ligt te wachten op de backlog.</em></p>
-        </div>
+    // Tijdelijke fallback totdat advies.js geladen is
+    window.l_generateAdvice = function() {
+        return '<div style="padding:12px 15px; border-radius:6px; background:#FFFAE6; border:1px solid #FFAB00; font-size:12px; color:#172B4D;">Adviesmodule wordt geladen…</div>';
+    };
 
-        <div id="man-rs" class="man-section" style="margin-top:20px;">
-            <h4 style="color:#36B37E; margin-bottom:5px;">Rework Rate & Release Stabilisatie</h4>
-            <p style="font-size:12px; margin-top:0;">Hoe vaak is een issue van "Done / Klaar voor Test" teruggevallen naar "In Progress"? Dit dashboard berekent de periode tussen de <strong>Eerste</strong> keer dat het systeem klaar werd gemeld en de <strong>Laatste</strong> definitieve keer. <br><br><em>Een hoge rate wijst vaak op vage requirements of onvoldoende automatische tests (Failure Demand).</em></p>
-        </div>
+    const script = document.createElement('script');
+    script.src = ADVIES_URL;
+    script.onerror = function() {
+        window.l_generateAdvice = function() {
+            return '<div style="padding:12px 15px; border-radius:6px; background:#FFEBE6; border:1px solid #FF5630; font-size:12px; color:#172B4D;">Adviesmodule kon niet worden geladen (<code>advies.js</code>). Controleer je netwerk/VPN.</div>';
+        };
+    };
+    document.head.appendChild(script);
+})();
 
-        <div id="man-cfd" class="man-section" style="margin-top:20px;">
-            <h4 style="color:#172B4D; margin-bottom:5px;">Cumulatief Stroomdiagram (CFD)</h4>
-            <p style="font-size:12px; margin-top:0;">Toont de opbouw van werk. Idealiter lopen de banden evenwijdig omhoog. Als de onderste band (To Do) veel sneller stijgt dan de bovenste (Done), groeit je backlog onbeheersbaar.</p>
-        </div>
-
-        <div id="man-vel" class="man-section" style="margin-top:20px;">
-            <h4 style="color:#172B4D; margin-bottom:5px;">Monte Carlo Forecasting (Voorspelling)</h4>
-            <p style="font-size:12px; margin-top:0;">In plaats van een "gemiddelde" te rekenen, simuleert dit algoritme 10.000 verschillende uitkomsten op basis van jullie historische throughput. Hierdoor krijg je een betrouwbaarheidspercentage (bijv. 85% kans dat we minimaal 10 items halen) dat véél accurater is dan een statische burn-up chart.</p>
-        </div>
-    </div>
-`;
-
-// --- 2. INGEBOUWD ADVIES (ANOMALIE) ENGINE ---
-window.l_generateAdvice = function(d) {
-    let recs = [];
-    if (!d || Object.keys(d).length === 0) return "";
-
-    const addRec = (type, icon, text) => { recs.push(`<div style="display:flex; gap:10px; margin-bottom:10px; padding:12px 15px; border-radius:6px; background:${type==='good'?'#E3FCEF':type==='warn'?'#FFF0B3':'#FFEBE6'}; border:1px solid ${type==='good'?'#36B37E':type==='warn'?'#FFAB00':'#FF5630'}; font-size:12px; color:#172B4D;"><span style="font-size:16px;">${icon}</span><div style="line-height:1.5;">${text}</div></div>`); };
-
-    if (d.feAvg !== undefined) {
-        if (d.feAvg < 15) addRec('danger', '⚠️', `<strong>Lage Flow Efficiency (${d.feAvg.toFixed(1)}%).</strong> Werk ligt aanzienlijk langer stil op de backlog dan dat eraan gewerkt wordt. Kijk kritisch naar refinement frequenties of prioriteiten.`);
-        else if (d.feAvg > 35) addRec('good', '🏆', `<strong>Uitstekende Flow Efficiency (${d.feAvg.toFixed(1)}%).</strong> Werk stroomt razendsnel van creatie naar afronding zonder lang in de backlog te blijven hangen.`);
-    }
-
-    if (d.ltP85 !== undefined && d.ctP85 !== undefined) {
-        if ((d.ltP85 / d.ctP85) > 6) {
-            addRec('warn', '⏳', `<strong>Lange wachttijden.</strong> P85 Lead Time (${Math.round(d.ltP85)}d) is meer dan 6x zo hoog als P85 Cycle Time (${Math.round(d.ctP85)}d). Overweeg items later in Jira aan te maken of oude backlog te sluiten.`);
-        }
-    }
-
-    if (d.stabPct !== undefined) {
-        if (d.stabPct < 70) addRec('danger', '📈', `<strong>Backlog dlibt dicht.</strong> Er komt momenteel 30% méér werk bij dan dat er afgerond wordt. Op de lange termijn leidt dit tot onbeheersbare wachttijden.`);
-        else if (d.stabPct > 125) addRec('good', '🧹', `<strong>Backlog opschoning.</strong> Jullie werken sneller items weg dan dat er nieuwe bijkomen (Ratio: ${d.stabPct.toFixed(0)}%).`);
-    }
-
-    if (d.cvPct !== undefined) {
-        if (d.cvPct > 100) addRec('danger', '⚖️', `<strong>Extreme variantie.</strong> De spreiding in doorlooptijden is te groot (CV: ${d.cvPct.toFixed(0)}%). Het team kan momenteel geen realistische beloftes doen. Breek grote user stories kleiner op.`);
-    }
-
-    if (recs.length === 0) {
-        addRec('good', '✅', '<strong>Stabiele Flow.</strong> De data vertoont momenteel geen risicovolle afwijkingen in variantie, efficiency of doorloopsnelheid.');
-    }
-
-    return `<h3 style="font-size:14px; font-weight:700; color:#172B4D; margin:0 0 12px 0;">Algoritmisch Team Advies</h3>${recs.join("")}`;
-};
-
+// --- 2b. SUBTAKEN MODULE ---
+// Laadt subtaken.js dynamisch. Wordt aangeroepen via de knop in de filterbalk.
+(function() {
+    const SUBTAKEN_URL = 'https://www.dutchscrum.nl/jira/subtaken.js';
+    const script = document.createElement('script');
+    script.src = SUBTAKEN_URL;
+    script.onerror = function() {
+        window.l_openSubtaken = function() {
+            alert('Subtaken module kon niet worden geladen. Controleer je netwerk/VPN.');
+        };
+    };
+    document.head.appendChild(script);
+})();
 
 // --- 3. DE HOOFD APPLICATIE ---
 const L_CFG = {
@@ -345,6 +321,7 @@ window.initLucasApp = function(containerId) {
                     <button onclick="l_openSettings()" class="f-btn">Instellingen</button>
                     <button onclick="l_showRawData()" class="f-btn">Diagnostiek</button>
                     <button onclick="l_openManual()" class="f-btn">Handleiding</button>
+                    <button onclick="if(typeof l_openSubtaken==='function'){l_openSubtaken();}else{alert('Subtaken module laadt nog, probeer opnieuw.');}" class="f-btn" id="btn-subtaken" style="display:none;">Subtaken</button>
                     <button onclick="location.reload()" class="f-btn">Nieuwe Analyse</button>
                 </div>
             </div>
@@ -754,6 +731,31 @@ window.l_run = async function() {
         
         l_state.raw = iss;
 
+        // Subtaken ophalen op de achtergrond (niet-blokkerend)
+        l_state.rawSubtasks = [];
+        const subJql = `Project="${v}" AND updated>="${dat}" AND issuetype in subTaskIssueTypes()`;
+        const subFields = "key,summary,status,assignee,issuetype,parent,created,resolutiondate,updated,customfield_13300";
+        fetch(`${L_CFG.URL}/rest/api/2/search?jql=${encodeURIComponent(subJql)}&startAt=0&maxResults=1000&fields=${subFields}`, { credentials: 'include', headers: L_CFG.HDR })
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(async d => {
+                let subIss = d.issues || [];
+                // Pagineer als er meer zijn
+                let subAt = subIss.length;
+                while (subAt < d.total) {
+                    const rr = await fetch(`${L_CFG.URL}/rest/api/2/search?jql=${encodeURIComponent(subJql)}&startAt=${subAt}&maxResults=1000&fields=${subFields}`, { credentials: 'include', headers: L_CFG.HDR });
+                    if (!rr.ok) break;
+                    const dd = await rr.json();
+                    subIss.push(...(dd.issues || []));
+                    subAt += (dd.issues || []).length;
+                }
+                l_state.rawSubtasks = subIss;
+                l_log(`${subIss.length} subtaken geladen.`);
+                // Knop zichtbaar maken zodra data er is
+                const btnSub = l_get('btn-subtaken');
+                if (btnSub && subIss.length > 0) btnSub.style.display = '';
+            })
+            .catch(() => l_log("Let op: subtaken konden niet worden opgehaald."));
+
         l_log("Wiskundige modellen toepassen en dashboard genereren...");
         
         l_hide('l-setup'); 
@@ -1083,7 +1085,7 @@ window.l_openManual = function(sectionId) {
     if (window.LUCAS_MANUAL_CONTENT) {
         _renderManual(sectionId);
     } else {
-        body.innerHTML = "<div style='color:red;'>Handleiding kan niet worden geladen. De theorie-engine ontbreekt in het bronbestand.</div>";
+        body.innerHTML = "<div style='padding:15px; color:#FF5630; font-size:12px; border:1px solid #FF5630; border-radius:4px; background:#FFEBE6;'>Handleiding wordt nog geladen. Wacht even en probeer opnieuw, of controleer je netwerk/VPN als dit blijft.</div>";
     }
 };
 
@@ -1319,6 +1321,18 @@ window.l_drawDash = async function() {
     window._l_mcData = {}; 
 
     let adviceData = {};
+
+    // Open issues (In Progress) meegeven aan advies.js voor aging-analyse
+    const _now = new Date();
+    adviceData.openIssues = l_state.processed
+        .filter(d => !d.isD && d.ds)
+        .map(d => ({
+            key:      d.key,
+            summary:  d.summary,
+            assignee: d.assignee,
+            age:      l_dif(d.ds, _now)
+        }))
+        .filter(x => x.age !== null);
 
     const MT = [
         { k:"lt", id:"man-lt", l:"Lead Time", d:"Aangemaakt tot opgelost", c:"#0052CC" },
