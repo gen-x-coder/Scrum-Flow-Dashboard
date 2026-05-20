@@ -132,21 +132,21 @@
                         style="background:none;border:none;font-size:26px;color:#fff;cursor:pointer;line-height:1;">&times;</button>
                 </div>
                 <div class="st-tab-bar" id="st-tabs">
-                    <button class="st-tab active" onclick="st_switchTab('analyse')">Analyse</button>
-                    <button class="st-tab"        onclick="st_switchTab('monte')">Monte Carlo</button>
-                    <button class="st-tab"        onclick="st_switchTab('advies')">Advies</button>
+                    <button class="st-tab active" onclick="st_switchTab('analyse')">Metrics</button>
                     <button class="st-tab"        onclick="st_switchTab('aging')">Aging</button>
                     <button class="st-tab"        onclick="st_switchTab('wip')">WIP per persoon</button>
                     <button class="st-tab"        onclick="st_switchTab('stories')">Story voortgang</button>
+                    <button class="st-tab"        onclick="st_switchTab('monte')">Monte Carlo</button>
+                    <button class="st-tab"        onclick="st_switchTab('advies')">Advies</button>
                     <button class="st-tab"        onclick="st_switchTab('trophy')">Taken Held</button>
                 </div>
                 <div id="st-modal-body">
                     <div id="st-panel-analyse"  class="st-panel active"></div>
-                    <div id="st-panel-monte"    class="st-panel"></div>
-                    <div id="st-panel-advies"   class="st-panel"></div>
                     <div id="st-panel-aging"    class="st-panel"></div>
                     <div id="st-panel-wip"      class="st-panel"></div>
                     <div id="st-panel-stories"  class="st-panel"></div>
+                    <div id="st-panel-monte"    class="st-panel"></div>
+                    <div id="st-panel-advies"   class="st-panel"></div>
                     <div id="st-panel-trophy"   class="st-panel"></div>
                 </div>
             </div>
@@ -158,7 +158,7 @@
     // -------------------------------------------------------
     // Tab wisselen
     // -------------------------------------------------------
-    const TAB_NAMES = ['analyse','monte','advies','aging','wip','stories','trophy'];
+    const TAB_NAMES = ['analyse','aging','wip','stories','monte','advies','trophy'];
 
     window.st_switchTab = function (name) {
         document.querySelectorAll('.st-tab').forEach((t, i) => t.classList.toggle('active', TAB_NAMES[i] === name));
@@ -200,7 +200,12 @@
         return `<span class="st-badge st-age-ok">${d}d</span>`;
     };
 
-    const DONE_STATUSES = ['done','closed','resolved','gesloten','opgelost','klaar','gedaan'];
+    // Alle statussen die als afgerond gelden — inclusief Nederlandse namen en won't do varianten
+    const DONE_STATUSES = [
+        'done', 'closed', 'resolved', 'gesloten', 'opgelost', 'klaar', 'gedaan',
+        "won't do", 'wont do', 'niet doen', 'afgewezen', 'cancelled', 'geannuleerd',
+        'duplicate', 'duplicaat', 'invalid', 'ongeldig', 'withdrawn', 'ingetrokken'
+    ];
     const isDone = s => DONE_STATUSES.some(d => (s || '').toLowerCase().includes(d));
 
     const stCtx = id => {
@@ -733,9 +738,37 @@
     function renderStories(subtasks) {
         const panel = document.getElementById('st-panel-stories');
         if (!panel) return;
+        // Bouw een lookup van parent-statussen uit verwerkte issues en ruwe data
+        const processedMap = {};
+        if (typeof l_state !== 'undefined' && l_state.processed) {
+            l_state.processed.forEach(d => { processedMap[d.key] = d.isD; });
+        }
+        const rawStatusMap = {};
+        if (typeof l_state !== 'undefined' && l_state.raw) {
+            l_state.raw.forEach(i => {
+                if (i && i.key && i.fields && i.fields.status) {
+                    rawStatusMap[i.key] = isDone(i.fields.status.name);
+                }
+            });
+        }
+        // Geeft true als de parent aantoonbaar gesloten is; bij twijfel false (niet tonen)
+        const isParentDone = key => {
+            if (key in processedMap) return processedMap[key];
+            if (key in rawStatusMap) return rawStatusMap[key];
+            return false;
+        };
+
         const byP={};
         subtasks.forEach(x=>{const k=x.parentKey||'(geen parent)';if(!byP[k])byP[k]={summary:x.parentSummary,tasks:[]};byP[k].tasks.push(x);});
-        const stories=Object.entries(byP).map(([key,d])=>{const total=d.tasks.length,done=d.tasks.filter(t=>t.done).length,pct=total>0?Math.round((done/total)*100):0;const openT=d.tasks.filter(t=>!t.done);const maxAge=openT.length?Math.max(...openT.map(t=>t.age??0)):null;return{key,summary:d.summary,total,done,pct,maxAge,allDoneOpen:done===total&&total>0&&key!=='(geen parent)'};}).sort((a,b)=>a.pct-b.pct);
+        const stories=Object.entries(byP).map(([key,d])=>{
+            const total=d.tasks.length, done=d.tasks.filter(t=>t.done).length;
+            const pct=total>0?Math.round((done/total)*100):0;
+            const openT=d.tasks.filter(t=>!t.done);
+            const maxAge=openT.length?Math.max(...openT.map(t=>t.age??0)):null;
+            const parentClosed = key==='(geen parent)' || isParentDone(key);
+            const allDoneOpen = done===total && total>0 && key!=='(geen parent)' && !parentClosed;
+            return{key,summary:d.summary,total,done,pct,maxAge,allDoneOpen,parentClosed};
+        }).sort((a,b)=>a.pct-b.pct);
         if(!stories.length){panel.innerHTML=`<div class="st-empty">Geen parent-koppeling gevonden.</div>`;return;}
         const anomalies=stories.filter(s=>s.allDoneOpen);
         panel.innerHTML=`

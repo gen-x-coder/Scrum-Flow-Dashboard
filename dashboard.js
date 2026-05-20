@@ -1,29 +1,21 @@
-// ============================================================
-// Scrum Flow API Dashboard - Centraal Beheerd
-// ============================================================
+// Scrum Flow Dashboard — v2.0
+// Externe modules: manual.js · advies.js · subtaken.js
 
-// --- 1. HANDLEIDING MODULE ---
-// Laadt manual.js dynamisch. Gebruikers hoeven niets aan te passen.
+// === EXTERNE MODULES ===
+// manual.js — handleiding, advies.js — team advies, subtaken.js — subtaken modal
 (function() {
     const MANUAL_URL = 'https://www.dutchscrum.nl/jira/manual.js';
-
-    // Tijdelijke fallback totdat manual.js geladen is
     window.LUCAS_MANUAL_CONTENT = null;
-
-    const script = document.createElement('script');
-    script.src = MANUAL_URL;
-    script.onerror = function() {
-        window.LUCAS_MANUAL_CONTENT = '<p style="color:#FF5630;">Handleiding kon niet worden geladen. Controleer je netwerk/VPN.</p>';
-    };
-    document.head.appendChild(script);
+    const s = document.createElement('script');
+    s.src = MANUAL_URL;
+    s.onerror = () => { window.LUCAS_MANUAL_CONTENT = '<p style="color:#FF5630;">Handleiding kon niet worden geladen.</p>'; };
+    document.head.appendChild(s);
 })();
-// --- 2. ADVIES ENGINE ---
-// Laadt advies.js dynamisch vanuit dezelfde locatie als dashboard.js.
-// Gebruikers hoeven alleen dashboard.js te laden; advies.js wordt automatisch meegenomen.
+
+// advies.js — team advies
 (function() {
     const ADVIES_URL = 'https://www.dutchscrum.nl/jira/advies.js';
 
-    // Tijdelijke fallback totdat advies.js geladen is
     window.l_generateAdvice = function() {
         return '<div style="padding:12px 15px; border-radius:6px; background:#FFFAE6; border:1px solid #FFAB00; font-size:12px; color:#172B4D;">Adviesmodule wordt geladen…</div>';
     };
@@ -38,8 +30,7 @@
     document.head.appendChild(script);
 })();
 
-// --- 2b. SUBTAKEN MODULE ---
-// Laadt subtaken.js dynamisch. Wordt aangeroepen via de knop in de filterbalk.
+// subtaken.js — subtaken dashboard modal
 (function() {
     const SUBTAKEN_URL = 'https://www.dutchscrum.nl/jira/subtaken.js';
     const script = document.createElement('script');
@@ -52,7 +43,7 @@
     document.head.appendChild(script);
 })();
 
-// --- 3. DE HOOFD APPLICATIE ---
+// === CONFIGURATIE ===
 const L_CFG = {
     URL: window.LUCAS_JIRA_URL,
     HDR: { 'Accept': 'application/json' },
@@ -112,6 +103,7 @@ const l_hash = str => {
     return (hash >>> 0).toString(36);
 };
 
+// Interpolated percentile — returns P{p} value from array
 function l_pct(a, p) { 
     if(!a || !a.length) return null; 
     const s = [...a].filter(v => v !== null && !isNaN(v)).sort((x,y) => x - y);
@@ -120,13 +112,14 @@ function l_pct(a, p) {
     return s[Math.floor(i)] + (s[Math.ceil(i)] - s[Math.floor(i)]) * (i - Math.floor(i)); 
 }
 
+// Monte Carlo forecast — 10.000 simulations over `sprints` periods, returns p50/p85/p95
 function l_runMC(thrp, sprints = 1) {
     if(!thrp || thrp.length === 0) return { p50:1, p15:1, p5:1, sims:[], thrp:[] };
     let results = [];
     for(let i=0; i<10000; i++) {
         let t = 0;
         for(let s=0; s<sprints; s++) t += thrp[Math.floor(Math.random() * thrp.length)];
-        results.push(Math.max(1, t)); // Dwing altijd minimaal 1 af (realisme)
+        results.push(Math.max(1, t));
     }
     results.sort((a,b)=>a-b);
     
@@ -147,6 +140,7 @@ function isWorkday(d, holSet) {
     return !holSet.has(dStr);
 }
 
+// Days between two dates, respecting workday/holiday settings in l_state
 function l_dif(a, b) {
     if (!a || !b || isNaN(a.getTime()) || isNaN(b.getTime()) || b < a) return null;
     if (l_state.settings.workdays === "workdays") {
@@ -273,6 +267,7 @@ function saveSettings() {
     }
 }
 
+// Entry point — inject CSS and render the full app into the element with `containerId`
 window.initLucasApp = function(containerId) {
     injectLucasCSS();
     loadSettings();
@@ -481,9 +476,7 @@ window.initLucasApp = function(containerId) {
     window.addEventListener("resize", window._l_resizeHandler);
 };
 
-// ============================================================
-// LOGICA & DATA VERWERKING
-// ============================================================
+// === DATA VERWERKING ===
 
 window.l_renderGroupManager = function() {
     const gm = l_get('l-group-manager');
@@ -731,15 +724,13 @@ window.l_run = async function() {
         
         l_state.raw = iss;
 
-        // Subtaken ophalen op de achtergrond (niet-blokkerend)
-        l_state.rawSubtasks = [];
+                l_state.rawSubtasks = [];
         const subJql = `Project="${v}" AND updated>="${dat}" AND issuetype in subTaskIssueTypes()`;
         const subFields = "key,summary,status,assignee,issuetype,parent,created,resolutiondate,updated,customfield_13300";
         fetch(`${L_CFG.URL}/rest/api/2/search?jql=${encodeURIComponent(subJql)}&startAt=0&maxResults=1000&fields=${subFields}`, { credentials: 'include', headers: L_CFG.HDR })
             .then(r => r.ok ? r.json() : Promise.reject(r.status))
             .then(async d => {
                 let subIss = d.issues || [];
-                // Pagineer als er meer zijn
                 let subAt = subIss.length;
                 while (subAt < d.total) {
                     const rr = await fetch(`${L_CFG.URL}/rest/api/2/search?jql=${encodeURIComponent(subJql)}&startAt=${subAt}&maxResults=1000&fields=${subFields}`, { credentials: 'include', headers: L_CFG.HDR });
@@ -750,7 +741,6 @@ window.l_run = async function() {
                 }
                 l_state.rawSubtasks = subIss;
                 l_log(`${subIss.length} subtaken geladen.`);
-                // Knop zichtbaar maken zodra data er is
                 const btnSub = l_get('btn-subtaken');
                 if (btnSub && subIss.length > 0) btnSub.style.display = '';
             })
@@ -761,7 +751,7 @@ window.l_run = async function() {
         l_hide('l-setup'); 
         l_show('l-dash');
         
-        l_get('l-dash').offsetWidth; 
+        l_get('l-dash').offsetWidth; // force reflow before drawing
 
         l_processData();
 
@@ -775,6 +765,7 @@ window.l_run = async function() {
     }
 };
 
+// Transforms raw Jira issues into processed records and repopulates filter dropdowns
 function l_processData() {
     const dn = L_CFG.STATUS_DONE.map(s=>s.toLowerCase());
     const ty = t => { 
@@ -880,9 +871,7 @@ window.l_applyFilters = function() {
     l_drawDash();
 };
 
-// ============================================================
-// DIAGNOSTICS & RAW DATA
-// ============================================================
+// === DIAGNOSTIEK ===
 window.l_showRawData = function() {
     if (!l_state.raw || l_state.raw.length === 0) return alert("Geen ruwe data beschikbaar. Voer eerst een analyse uit.");
     
@@ -1073,10 +1062,7 @@ window.l_showRawData = function() {
     l_show('l-raw-modal-overlay');
 };
 
-
-// ============================================================
-// EXTERNE MODULES (Advies & Handleiding)
-// ============================================================
+// === MODULES ===
 
 window.l_openManual = function(sectionId) {
     l_show('l-man-modal-overlay');
@@ -1085,7 +1071,7 @@ window.l_openManual = function(sectionId) {
     if (window.LUCAS_MANUAL_CONTENT) {
         _renderManual(sectionId);
     } else {
-        body.innerHTML = "<div style='padding:15px; color:#FF5630; font-size:12px; border:1px solid #FF5630; border-radius:4px; background:#FFEBE6;'>Handleiding wordt nog geladen. Wacht even en probeer opnieuw, of controleer je netwerk/VPN als dit blijft.</div>";
+        body.innerHTML = "<div style='padding:12px; color:#FF5630; font-size:12px; border:1px solid #FF5630; border-radius:4px; background:#FFEBE6;'>Handleiding wordt nog geladen — wacht even en probeer opnieuw, of controleer je netwerk/VPN.</div>";
     }
 };
 
@@ -1128,9 +1114,7 @@ function _renderAdvice(adviceData, containerDiv) {
     }
 }
 
-// ============================================================
-// MODALS VOOR DETAIL EN CARLO UITLEG
-// ============================================================
+// === MODALS ===
 window.l_openModal = function(k, label) {
     if (!window._l_modalData) return;
     const dObj = window._l_modalData[k];
@@ -1270,9 +1254,8 @@ window.l_openMCModal = function(type) {
     }, 100);
 };
 
-// ============================================================
-// DASHBOARD RENDERER & HOOFDLOGICA
-// ============================================================
+// === DASHBOARD RENDERER ===
+// Groups completed items by sprint (pD=14), week (7) or month (30); optionally sums SP
 function groupItemsByPeriod(itemsToGroup, pD, countSp = false) {
     const bk = {};
     const validSprints = (l_state.sprints || []).filter(s => s.state === 'closed' && s.startDate);
@@ -1322,7 +1305,6 @@ window.l_drawDash = async function() {
 
     let adviceData = {};
 
-    // Open issues (In Progress) meegeven aan advies.js voor aging-analyse
     const _now = new Date();
     adviceData.openIssues = l_state.processed
         .filter(d => !d.isD && d.ds)
@@ -1420,7 +1402,6 @@ window.l_drawDash = async function() {
         if(spsGrps.length > 0) {
             const sps = spsGrps.map(g => g._total);
             
-            // FIX: Negeer de "aanloopfase" van teams (leading zeros wegsnijden)
             let startIdx = 0;
             while(startIdx < sps.length && sps[startIdx] === 0) startIdx++;
             const activeSps = sps.slice(startIdx);
@@ -1447,7 +1428,6 @@ window.l_drawDash = async function() {
         if (itmGrps.length > 0) {
             const itms = itmGrps.map(g => g._total);
             
-            // FIX: Negeer de aanloopfase (leading zeros) ook voor Aantal Issues!
             let startIdx = 0;
             while(startIdx < itms.length && itms[startIdx] === 0) startIdx++;
             const activeItms = itms.slice(startIdx);
