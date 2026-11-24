@@ -1,12 +1,10 @@
-# Radix — Scrum Flow Dashboard voor Jira
+# Radix: Scrum Flow Dashboard voor Jira
 
 Radix toont de flow-metrics van een team rechtstreeks uit een Jira-bord, op een Confluence-pagina. Je ziet Lead Time, Cycle Time, Queue Time, Flow Efficiency, throughput, een cumulatief stroomdiagram en Monte Carlo-voorspellingen. Alles draait in de browser van de gebruiker, met diens eigen Jira-sessie. Er is geen server, geen database en geen externe AI nodig.
 
 Radix kijkt naar het team, niet naar personen. Namen, issue keys en toegewezen medewerkers komen niet in het dashboard.
 
 > **In English:** Radix is a browser-based flow-metrics dashboard for Jira boards, embedded in a Confluence page. The interface and documentation are in Dutch. MIT licensed, © 2026 Lucas Bonsel.
-
-Huidige versie: **3.0.0-dev.10** (ontwikkelversie).
 
 ## Wat Radix laat zien
 
@@ -114,13 +112,6 @@ Een paar dingen om op te letten bij het lezen van de cijfers:
 
 ## Herkomst en licentie
 
-Radix is ontworpen en geschreven door **Lucas Bonsel**. De eerste versie, toen nog *Scrum Flow Dashboard*, is op **11 mei 2026** in deze repository gepubliceerd onder de MIT-licentie. Die versie is nog altijd te bekijken in commit [`57a72d3`](https://github.com/gen-x-coder/Scrum-Flow-Dashboard/tree/57a72d346266d22f49d3949f579bdae8b06782ca), en de hele ontwikkeling in de [commitgeschiedenis](https://github.com/gen-x-coder/Scrum-Flow-Dashboard/commits/main). De naam *Radix* (Latijn voor "wortel") verwijst naar die oorsprong.
+Radix is ontworpen en geschreven door **Lucas Bonsel**. De eerste versie, toen nog *Scrum Flow Dashboard*, is op **11 mei 2026** in deze repository gepubliceerd onder de MIT-licentie. Die versie is nog altijd te bekijken in commit [`57a72d3`](https://github.com/gen-x-coder/Scrum-Flow-Dashboard/tree/57a72d346266d22f49d3949f579bdae8b06782ca).
 
-Je mag Radix gebruiken, aanpassen en verspreiden, ook commercieel, onder de voorwaarden van de [MIT-licentie](LICENSE). De belangrijkste voorwaarde: de copyrightvermelding en de licentietekst moeten in elke kopie, en in elk wezenlijk deel ervan, behouden blijven. Gebruik je (delen van) deze code in een eigen product, vermeld dan de herkomst, bijvoorbeeld:
-
-```
-Gebaseerd op Radix / Scrum Flow Dashboard door Lucas Bonsel
-https://github.com/gen-x-coder/Scrum-Flow-Dashboard — MIT License
-```
-
-Copyright © 2026 Lucas Bonsel.
+Je mag Radix gebruiken, aanpassen en verspreiden, ook commercieel, onder de voorwaarden van de [MIT-licentie](LICENSE). 
