@@ -4,7 +4,7 @@
   if (window.RADIX_VERSION || document.getElementById('radix-app')) { console.warn('Radix: slechts één dashboard per pagina.'); return; }
   const script = document.currentScript || Array.from(document.scripts || []).find(s => /\/dashboard\.js(?:[?#]|$)/.test(s.src));
   if (!script?.src) { console.error('Radix: locatie dashboard.js onbekend'); return; }
-  const version = window.RADIX_VERSION = '3.0.0-rc.1';
+  const version = window.RADIX_VERSION = '3.0.0';
   const base = new URL('.', script.src);
   const pageConfig = window.FLOW_CONFIG || {};
   const load = (name, optional=false) => new Promise((resolve,reject) => {
