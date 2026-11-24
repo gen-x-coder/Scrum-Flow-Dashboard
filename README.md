@@ -114,7 +114,7 @@ Een paar dingen om op te letten bij het lezen van de cijfers:
 
 ## Herkomst en licentie
 
-Radix is ontworpen en geschreven door **Lucas Bonsel**. De eerste versie, toen nog *Scrum Flow Dashboard*, is op **11 mei 2026** in deze repository gepubliceerd onder de MIT-licentie. Die versie staat vast onder de tag [`v1.0-origineel`](https://github.com/gen-x-coder/Scrum-Flow-Dashboard/tree/v1.0-origineel) en in de [commitgeschiedenis](https://github.com/gen-x-coder/Scrum-Flow-Dashboard/commits/main). De naam *Radix* (Latijn voor "wortel") verwijst naar die oorsprong.
+Radix is ontworpen en geschreven door **Lucas Bonsel**. De eerste versie, toen nog *Scrum Flow Dashboard*, is op **11 mei 2026** in deze repository gepubliceerd onder de MIT-licentie. Die versie is nog altijd te bekijken in commit [`57a72d3`](https://github.com/gen-x-coder/Scrum-Flow-Dashboard/tree/57a72d346266d22f49d3949f579bdae8b06782ca), en de hele ontwikkeling in de [commitgeschiedenis](https://github.com/gen-x-coder/Scrum-Flow-Dashboard/commits/main). De naam *Radix* (Latijn voor "wortel") verwijst naar die oorsprong.
 
 Je mag Radix gebruiken, aanpassen en verspreiden, ook commercieel, onder de voorwaarden van de [MIT-licentie](LICENSE). De belangrijkste voorwaarde: de copyrightvermelding en de licentietekst moeten in elke kopie, en in elk wezenlijk deel ervan, behouden blijven. Gebruik je (delen van) deze code in een eigen product, vermeld dan de herkomst, bijvoorbeeld:
 
