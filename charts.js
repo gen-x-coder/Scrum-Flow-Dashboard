@@ -141,10 +141,11 @@ window.drawAllCharts = function() {
         const dn=dta.filter(d=>d.isD&&d.r);
         const srtGrps = groupItemsByPeriod(dn, pD, false);
         const subtitle=tc.canvas.parentElement.querySelector(".c-sub");
-        if(subtitle)subtitle.textContent="Afgeronde issues per "+(srtGrps.mode||"periode")+" · inclusief nulperioden";
+        if(subtitle)subtitle.textContent="Afgesloten issues per "+(srtGrps.mode||"periode")+" · inclusief nulperioden"+(srtGrps.some(b=>b.kind==='partial')?"; * onvolledig":"")+(srtGrps.some(b=>b.kind==='gap')?"; † tussen sprints":"");
         if(srtGrps.length){
             const srt = srtGrps.sort((a,b)=>a.d - b.d);
             const ts = srt.map(b => b._total);
+            tc.canvas.setAttribute("aria-label",`Throughput: ${ts.reduce((a,b)=>a+b,0)} afgesloten issues over ${srt.length} getoonde perioden.`);
             const mC = Math.max(...ts,1)*1.1;
             const tk = l_tks(mC,tH-50,20);
             
@@ -156,16 +157,16 @@ window.drawAllCharts = function() {
                 let sy=tH-30, x=32+i*st+(st-bw)/2; 
                 Object.entries(b.t).forEach(([t,c])=>{ 
                     const h=(c/mC)*(tH-50); 
-                    tc.fillStyle=l_col(t); 
+                    tc.fillStyle=l_col(t); tc.globalAlpha=b.kind==='gap'||b.kind==='partial'?.55:1; 
                     tc.fillRect(x,sy-h,Math.max(1, bw),h); 
-                    sy-=h; 
+                    sy-=h; tc.globalAlpha=1; 
                 }); 
             });
             
             tc.textAlign="center"; tc.fillStyle="#6B778C";
             const stepX = Math.max(1, Math.ceil(srt.length / 6));
             for(let i=0; i<srt.length; i+=stepX) {
-                if(srt[i] && srt[i].d) tc.fillText(srt[i].d.toLocaleDateString("nl-NL",{month:"short",year:"2-digit"}), 32+i*st+st/2, tH-12);
+                if(srt[i] && srt[i].d) tc.fillText(srt[i].d.toLocaleDateString("nl-NL",{day:"numeric",month:"short"})+(srt[i].kind==='gap'?' †':srt[i].kind==='partial'?' *':''), 32+i*st+st/2, tH-12);
             }
         } else {
             l_noData(tc, tW, tH);

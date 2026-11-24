@@ -4,7 +4,7 @@
 // FLOW_CONFIG in Confluence heeft voorrang; persoonlijke weergavevoorkeuren
 // hebben vervolgens voorrang op defaults. Config bevat nooit wachtwoorden.
 window.RADIX_CONFIG = {
-    // jiraUrl: "https://www.jira.nl", // indien niet via Confluence opgegeven
+    // jiraUrl: "https://jira.example.com", // indien niet via Confluence opgegeven
     // containerId: "flow-app-container", // alleen bij een afwijkend HTML-element
 
     // Jira custom fields; null schakelt een veld uit.
@@ -14,7 +14,7 @@ window.RADIX_CONFIG = {
     },
 
     // Alleen invullen bij afwijkende namen; vervangt de lijst per type.
-    // Vergelijking is niet hoofdlettergevoelig en gebruikt deelwoorden.
+    // Vergelijking is niet hoofdlettergevoelig en vereist een exacte naam.
     // issueTypes: {
     //     story: ["Story", "Verhaal", "User Story", "Verbetering", "Technical Story", "Improvement"],
     //     bug: ["Bug", "Defect", "Fout"]

@@ -1,4 +1,4 @@
-/*! Radix — MIT License; see LICENSE. */
+/*! Radix — MIT License; see LICENSE. Copyright (c) Lucas Bonsel. */
 const RadixWorkflow = (()=>{
     const valid=v=>v!=null&&Number.isFinite(+v);
     const categories=['todo','progress','done'];

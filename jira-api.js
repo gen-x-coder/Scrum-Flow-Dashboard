@@ -23,7 +23,7 @@ const RadixHistory = (() => {
         const c = date(fields.created), current = classify(fields.status?.id, fields.status?.name) || category(fields.status);
         if (!c || !current || !Array.isArray(histories)) return null;
         const events = histories.flatMap(h => (h.items || []).filter(i => norm(i.field) === 'status' || norm(i.fieldId) === 'status').map(i => ({at:date(h.created), from:classify(i.from,i.fromString), to:classify(i.to,i.toString)})));
-        if (events.some(e => !e.at || e.at < c || e.at > new Date() || !e.from || !e.to)) return null;
+        if (events.some(e => !e.at || e.at < c || +e.at > Date.now() + 5*60e3 || !e.from || !e.to)) return null;
         events.sort((a,b)=>a.at-b.at);
         let state = events.length ? events[0].from : current, start = state === 'progress' ? c : null;
         let finish = state === 'done' ? c : null, reopened = 0, cursor = c;
@@ -73,7 +73,9 @@ const RadixHistory = (() => {
     async function load(base, issues, progress, config={}, user=null, recheck=null) {
         const statuses=await getJSON(base+'/rest/api/2/status');
         if (!Array.isArray(statuses)) throw new Error('Jira-statuslijst ontbreekt');
-        const classify=classifier(statuses,config);
+        const classifyBase=classifier(statuses,config);
+        const unknownStatuses=new Map();
+        const classify=(id,name)=>{const result=classifyBase(id,name);if(!result){const label=String(name||id||'onbekend');unknownStatuses.set(label,(unknownStatuses.get(label)||0)+1);}return result;};
         const cacheInfo={status:'niet geladen',notFound:0,expired:0,changed:0,missingFields:0,writeSkipped:0,readErrors:0,writeErrors:0,written:0,purged:0,verified:0,unstable:0,mismatchUpdated:0,mismatchCreated:0,mismatchStatus:0,detailMissing:0,identityMismatch:0,dateDeltaSample:null};
         const cache=typeof RadixHistoryCache !== 'undefined' ? await RadixHistoryCache.connect(base,user,statuses,config,cacheInfo) : null;
         if(cache?.prime) {try {await cache.prime(issues);} catch(e){cacheInfo.readErrors++;}}
@@ -128,7 +130,7 @@ const RadixHistory = (() => {
                 }
             }
             if(cache?.flush) {try {await cache.flush();} catch(e){cacheInfo.writeErrors++;}} } finally { cache?.close(); }
-        return {errors,incomplete,hits,requests,cacheInfo};
+        return {errors,incomplete,hits,requests,cacheInfo,unknownStatuses:Object.fromEntries(unknownStatuses)};
     }
     return {classifier,reconstruct,completeHistory,load,clearCache:()=>RadixHistoryCache.clear()};
 })();

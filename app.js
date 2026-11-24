@@ -1,6 +1,5 @@
 /*! Radix — MIT License; see LICENSE. Copyright (c) Lucas Bonsel. */
-// Radix — 3.0.0-dev.10
-// Based on the original MIT dashboard.
+// Based on the original MIT dashboard, github.com/gen-x-coder/Scrum-Flow-Dashboard (11 May 2026).
 const RADIX_VIEWS = [['lt','Lead Time'],['ct','Cycle Time'],['qt','Queue Time'],['fe','Flow Efficiency'],['mtr','MTTR'],['team','Teamindicatoren (CV en stabiliteit)'],['mc-issues','Monte Carlo (Issues)'],['mc-sp','Monte Carlo (Story Points)'],['forecast','Einddatumvoorspelling'],['advice','Teamreflectie (advies)'],['phase','Faseverdeling'],['hist','Histogram'],['scat','Scatterplot'],['thru','Throughput'],['cfd','Cumulatief stroomdiagram']];
 const RADIX_OPTIONS = window.FLOW_CONFIG;
 
@@ -28,13 +27,19 @@ const L_DEF = RADIX_OPTIONS.defaults;
 let l_state = {
     raw: [], processed: [], filtered: [], sprints: [], boardName: "", lastJQL: "",
     settings: RadixConfig.preferences(RADIX_OPTIONS),
-    filters: { type: "", assignee: "", team: "" },
+    filters: { type: "", team: "" },
     historyQuality: null
 };
 
 const l_get = id => document.getElementById(id);
-const l_show = id => { const e = l_get(id); if (e) e.style.display = 'block'; };
-const l_hide = id => { const e = l_get(id); if (e) e.style.display = 'none'; };
+const modalFocus = new Map();
+const l_show = id => { const e = l_get(id); if (!e) return; e.style.display='block'; if(id.endsWith('-modal-overlay')){modalFocus.set(id,document.activeElement);e.setAttribute('role','dialog');e.setAttribute('aria-modal','true');e.setAttribute('aria-label',e.querySelector('h2,h3')?.textContent||'Radix dialoog');e.querySelector('button,input,[tabindex]')?.focus();} };
+const l_hide = id => { const e = l_get(id); if (!e) return; e.style.display='none'; if(modalFocus.has(id)){modalFocus.get(id)?.focus?.();modalFocus.delete(id);} };
+window.addEventListener('keydown',event=>{
+    const id=[...modalFocus.keys()].at(-1);if(!id)return;const e=l_get(id);if(!e)return;
+    if(event.key==='Escape'){event.preventDefault();l_hide(id);}
+    if(event.key==='Tab'){const nodes=[...e.querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')].filter(x=>!x.disabled&&x.getClientRects().length);if(!nodes.length)return;const first=nodes[0],last=nodes.at(-1);if(event.shiftKey&&(document.activeElement===first||!e.contains(document.activeElement))){event.preventDefault();last.focus();}else if(!event.shiftKey&&(document.activeElement===last||!e.contains(document.activeElement))){event.preventDefault();first.focus();}}
+});
 const l_log = m => { 
     const l = l_get('l-log'); 
     if (l) { 
@@ -48,9 +53,9 @@ const l_log = m => {
 };
 const l_esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const l_col = t => L_CFG.colors[t] || L_CFG.colors.Other;
-const fDay = v => v === null || isNaN(v) ? "–" : (v < 1 ? `${Math.round(v*24)}u` : `${v.toFixed(1)}${l_state.settings.workdays==="workdays"?"wd":"d"}`);
+const fDay = v => v === null || isNaN(v) ? "–" : (v < 1 && l_state.settings.workdays!=="workdays" ? `${Math.round(v*24)}u` : `${v.toFixed(l_state.settings.workdays==="workdays" && v<1?2:1)}${l_state.settings.workdays==="workdays"?"wd":"d"}`);
 const fPct = v => v === null || isNaN(v) ? "–" : `${v.toFixed(1)}%`;
-const hMark = id => `<a href="#" onclick="l_openManual('${id}'); return false;" style="color:#97A0AF; text-decoration:none; margin-left:6px; font-weight:normal;" title="Uitleg lezen">(?)</a>`;
+const hMark = id => `<button type="button" onclick="l_openManual('${id}')" style="background:none;border:0;padding:0;cursor:pointer;color:#6B778C; text-decoration:none; margin-left:6px; font-weight:normal;" title="Uitleg lezen" aria-label="Uitleg lezen">(?)</button>`;
 
 window.l_syncMax = function(id) {
     const val = l_get(id).value;
@@ -88,67 +93,67 @@ function injectFlowCSS() {
         #radix-app #radix-forecast .l-card { max-width:700px; }
         #radix-app #radix-views { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:2px 10px; }
 
-        h2, h3, h4 { font-family: inherit; color: inherit; margin-top: 0; }
+        #radix-app h2, #radix-app h3, #radix-app h4 { font-family: inherit; color: inherit; margin-top: 0; }
         
-        .l-flex { display: flex; align-items: center; }
-        .l-flex-b { display: flex; align-items: center; justify-content: space-between; }
-        .l-card { background: #FFFFFF; border-radius: 6px; box-shadow: 0 1px 3px rgba(9,30,66,.12); padding: 20px; margin-bottom: 20px; display:flex; flex-direction:column; }
-        .l-grid-m { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
-        .l-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-bottom: 24px; }
+        #radix-app .l-flex { display: flex; align-items: center; }
+        #radix-app .l-flex-b { display: flex; align-items: center; justify-content: space-between; }
+        #radix-app .l-card { background: #FFFFFF; border-radius: 6px; box-shadow: 0 1px 3px rgba(9,30,66,.12); padding: 20px; margin-bottom: 20px; display:flex; flex-direction:column; }
+        #radix-app .l-grid-m { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        #radix-app .l-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-bottom: 24px; }
         
-        .l-btn { background: #0052CC; color: #fff; border: none; border-radius: 3px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .l-btn-alt { background: transparent; border: 1px solid #DFE1E6; color: #172B4D; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 500; }
-        .l-btn-alt:hover { background: #F4F5F7; }
+        #radix-app .l-btn { background: #0052CC; color: #fff; border: none; border-radius: 3px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        #radix-app .l-btn-alt { background: transparent; border: 1px solid #DFE1E6; color: #172B4D; padding: 6px 12px; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 500; }
+        #radix-app .l-btn-alt:hover { background: #F4F5F7; }
         
-        .f-btn { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); color: #fff; border-radius: 3px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 500; transition: background .2s; }
-        .f-btn:hover { background: rgba(255,255,255,.2); }
+        #radix-app .f-btn { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); color: #fff; border-radius: 3px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-weight: 500; transition: background .2s; }
+        #radix-app .f-btn:hover { background: rgba(255,255,255,.2); }
 
-        .l-inp, .l-sel { width: 100%; padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px; background: #FAFBFC; margin-top: 4px; outline: none; }
-        .l-sel-inline { padding: 4px 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 12px; background: #FAFBFC; outline: none; cursor: pointer; color: #172B4D; }
+        #radix-app .l-inp, #radix-app .l-sel { width: 100%; padding: 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 13px; background: #FAFBFC; margin-top: 4px; outline: none; }
+        #radix-app .l-sel-inline { padding: 4px 8px; border: 1px solid #DFE1E6; border-radius: 3px; font-size: 12px; background: #FAFBFC; outline: none; cursor: pointer; color: #172B4D; }
         
-        #l-filter-bar { background: #0747A6; padding: 12px 20px; border-radius: 6px; color: white; gap: 15px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; width: 100%; }
-        .f-sel { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); color: #fff; border-radius: 3px; padding: 6px 8px; font-size: 12px; outline: none; cursor:pointer;}
-        .f-sel option { background: #fff; color: #172B4D; }
+        #radix-app #l-filter-bar { background: #0747A6; padding: 12px 20px; border-radius: 6px; color: white; gap: 15px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; width: 100%; }
+        #radix-app .f-sel { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3); color: #fff; border-radius: 3px; padding: 6px 8px; font-size: 12px; outline: none; cursor:pointer;}
+        #radix-app .f-sel option { background: #fff; color: #172B4D; }
         
-        .m-crd { position: relative; overflow: hidden; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(9,30,66,.12); padding: 20px; border: 1px solid #DFE1E6; display: flex; flex-direction: column; }
-        .m-crd::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ac); border-radius: 6px 0 0 6px; }
-        .m-tit { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #6B778C; margin-bottom: 12px; }
-        .m-cnt { font-size: 11px; color: #6B778C; background: #F4F5F7; padding: 2px 8px; border-radius: 10px; }
-        .m-st { display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; gap: 8px; margin-bottom: 12px; }
-        .m-s-lbl { font-size: 10px; color: #6B778C; text-transform: uppercase; }
-        .m-s-val { font-size: 18px; font-weight: 700; line-height: 1.2; color: #172B4D; }
-        .m-pct { border-top: 1px solid #DFE1E6; padding-top: 10px; display: flex; gap: 8px; font-size: 11px; color: #6B778C; }
-        .p-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        #radix-app .m-crd { position: relative; overflow: hidden; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(9,30,66,.12); padding: 20px; border: 1px solid #DFE1E6; display: flex; flex-direction: column; }
+        #radix-app .m-crd::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--ac); border-radius: 6px 0 0 6px; }
+        #radix-app .m-tit { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #6B778C; margin-bottom: 12px; }
+        #radix-app .m-cnt { font-size: 11px; color: #6B778C; background: #F4F5F7; padding: 2px 8px; border-radius: 10px; }
+        #radix-app .m-st { display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; gap: 8px; margin-bottom: 12px; }
+        #radix-app .m-s-lbl { font-size: 10px; color: #6B778C; text-transform: uppercase; }
+        #radix-app .m-s-val { font-size: 18px; font-weight: 700; line-height: 1.2; color: #172B4D; }
+        #radix-app .m-pct { border-top: 1px solid #DFE1E6; padding-top: 10px; display: flex; gap: 8px; font-size: 11px; color: #6B778C; }
+        #radix-app .p-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
         
-        .l-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
-        .l-tbl th { position: sticky; top: 0; background: #FAFBFC; padding: 10px; text-align: left; border-bottom: 1px solid #DFE1E6; color: #6B778C; text-transform: uppercase; font-size: 10px; }
-        .l-tbl td { padding: 10px; border-bottom: 1px solid #DFE1E6; color: #172B4D; }
-        .m-link { background: none; border: none; color: #0052CC; padding: 10px 0 0 0; margin-top: auto; border-top: 1px solid #DFE1E6; width: 100%; text-align: left; cursor: pointer; font-size: 12px; font-weight: 600; }
-        .m-link:hover { text-decoration: underline; }
+        #radix-app .l-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+        #radix-app .l-tbl th { position: sticky; top: 0; background: #FAFBFC; padding: 10px; text-align: left; border-bottom: 1px solid #DFE1E6; color: #6B778C; text-transform: uppercase; font-size: 10px; }
+        #radix-app .l-tbl td { padding: 10px; border-bottom: 1px solid #DFE1E6; color: #172B4D; }
+        #radix-app .m-link { background: none; border: none; color: #0052CC; padding: 10px 0 0 0; margin-top: auto; border-top: 1px solid #DFE1E6; width: 100%; text-align: left; cursor: pointer; font-size: 12px; font-weight: 600; }
+        #radix-app .m-link:hover { text-decoration: underline; }
 
 
-        .ti-val { font-size: 32px; font-weight: 700; line-height: 1.1; margin: 8px 0 4px 0; color: #172B4D; }
-        .ti-trk { height: 8px; background: #DFE1E6; border-radius: 4px; margin: 8px 0; overflow: hidden; }
-        .ti-fil { height: 100%; border-radius: 4px; }
-        .ti-row { display: flex; justify-content: space-between; font-size: 12px; color: #6B778C; border-top: 1px solid #DFE1E6; padding-top: 6px; margin-top: 6px; }
+        #radix-app .ti-val { font-size: 32px; font-weight: 700; line-height: 1.1; margin: 8px 0 4px 0; color: #172B4D; }
+        #radix-app .ti-trk { height: 8px; background: #DFE1E6; border-radius: 4px; margin: 8px 0; overflow: hidden; }
+        #radix-app .ti-fil { height: 100%; border-radius: 4px; }
+        #radix-app .ti-row { display: flex; justify-content: space-between; font-size: 12px; color: #6B778C; border-top: 1px solid #DFE1E6; padding-top: 6px; margin-top: 6px; }
         
-        .pb-row { margin-bottom: 14px; }
-        .pb-trk { height: 10px; background: #DFE1E6; border-radius: 5px; margin-top: 5px; overflow: hidden; }
+        #radix-app .pb-row { margin-bottom: 14px; }
+        #radix-app .pb-trk { height: 10px; background: #DFE1E6; border-radius: 5px; margin-top: 5px; overflow: hidden; }
         
-        .c-tit { font-size: 16px; font-weight: 600; color: inherit; font-family: inherit; margin-bottom: 2px; }
-        .c-sub { font-size: 11px; color: #6B778C; margin-bottom: 12px; }
-        canvas.l-cvs { width: 100%; height: 260px; display: block; }
+        #radix-app .c-tit { font-size: 16px; font-weight: 600; color: inherit; font-family: inherit; margin-bottom: 2px; }
+        #radix-app .c-sub { font-size: 11px; color: #6B778C; margin-bottom: 12px; }
+        #radix-app canvas.l-cvs { width: 100%; height: 260px; display: block; }
         
-        #l-log { display: none; padding: 12px 16px; background: #EBECF0; font-family: monospace; font-size: 12px; margin-top: 15px; border-radius: 4px; color: #172B4D; max-height: 200px; overflow-y: auto; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #DFE1E6; }
+        #radix-app #l-log { display: none; padding: 12px 16px; background: #EBECF0; font-family: monospace; font-size: 12px; margin-top: 15px; border-radius: 4px; color: #172B4D; max-height: 200px; overflow-y: auto; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #DFE1E6; }
         
-        .l-modal-bg { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(9,30,66,0.6); z-index:9999; }
-        .l-modal-box { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:#fff; border-radius:6px; width:800px; max-width:95vw; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 40px rgba(9,30,66,.3); }
-        .l-modal-box-lg { width:900px; }
-        .l-modal-header { padding:20px; border-bottom:1px solid #DFE1E6; display:flex; justify-content:space-between; align-items:center; background:#FAFBFC; }
-        .l-modal-body { overflow-y:auto; padding:20px; font-size:13px; color:#172B4D; }
+        #radix-app .l-modal-bg { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(9,30,66,0.6); z-index:9999; }
+        #radix-app .l-modal-box { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:#fff; border-radius:6px; width:800px; max-width:95vw; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 40px rgba(9,30,66,.3); }
+        #radix-app .l-modal-box-lg { width:900px; }
+        #radix-app .l-modal-header { padding:20px; border-bottom:1px solid #DFE1E6; display:flex; justify-content:space-between; align-items:center; background:#FAFBFC; }
+        #radix-app .l-modal-body { overflow-y:auto; padding:20px; font-size:13px; color:#172B4D; }
         
         @media (max-width: 900px) {
-            .l-grid-2 { grid-template-columns: 1fr; }
+            #radix-app .l-grid-2 { grid-template-columns: 1fr; }
         }
     `;
     document.head.appendChild(style);
@@ -240,7 +245,7 @@ window.initFlowApp = function(containerId) {
                         </div>
                     </div>
                     <div id="sub-hist" class="c-sub">Verdeling van frequentie</div>
-                    <canvas id="cv-hist" class="l-cvs"></canvas>
+                    <canvas role="img" aria-label="Histogram van doorlooptijden" id="cv-hist" class="l-cvs"></canvas>
                 </div>
                 <div class="l-card">
                     <div class="l-flex-b"><div class="c-tit">Scatterplot ${hMark('man-scat')}</div>
@@ -253,7 +258,7 @@ window.initFlowApp = function(containerId) {
                         </div>
                     </div>
                     <div id="sub-scat" class="c-sub">Elke stip is 1 afgerond issue</div>
-                    <canvas id="cv-scat" class="l-cvs"></canvas><div id="scat-legend" class="radix-chart-legend"></div>
+                    <canvas role="img" aria-label="Scatterplot van afgeronde issues" id="cv-scat" class="l-cvs"></canvas><div id="scat-legend" class="radix-chart-legend"></div>
                 </div>
                 <div class="l-card">
                     <div class="l-flex-b"><div class="c-tit">Throughput ${hMark('man-thru')}</div>
@@ -264,12 +269,12 @@ window.initFlowApp = function(containerId) {
                         </select>
                     </div>
                     <div class="c-sub">Aantal afgeronde issues per periode</div>
-                    <canvas id="cv-thru" class="l-cvs"></canvas>
+                    <canvas role="img" aria-label="Throughput per periode" id="cv-thru" class="l-cvs"></canvas>
                 </div>
                 <div class="l-card">
                     <div class="c-tit">Cumulatief Stroomdiagram (CFD) ${hMark('man-cfd')}</div>
                     <div class="c-sub">Historische statusverdeling van de huidige selectie</div>
-                    <canvas id="cv-cfd" class="l-cvs"></canvas><div id="cfd-legend" class="radix-chart-legend"></div><div id="cfd-quality" class="m-caption"></div>
+                    <canvas role="img" aria-label="Cumulatief stroomdiagram" id="cv-cfd" class="l-cvs"></canvas><div id="cfd-legend" class="radix-chart-legend"></div><div id="cfd-quality" class="m-caption"></div>
                 </div>
             </div>
         </div>
@@ -491,11 +496,13 @@ window.l_run = async function() {
         l_log(`Alle data binnen! (${((performance.now()-t0)/1000).toFixed(1)} sec)`);
         
         l_state.source = 'history';
-        const candidates = iss.filter(i => { const n=(i.fields?.issuetype?.name||'').toLowerCase(); return [...L_CFG.TYPE_BUG,...L_CFG.TYPE_STORY].some(x=>n.includes(x)); });
+        const candidates = iss.filter(i => { const n=(i.fields?.issuetype?.name||'').trim().toLowerCase(); return [...L_CFG.TYPE_BUG,...L_CFG.TYPE_STORY].some(x=>n === x); });
         l_log(`Wijzigingshistorie ophalen voor ${candidates.length} Stories en Bugs…`);
         l_state.historyQuality = await RadixHistory.load(L_CFG.URL,candidates,(n,total)=>{if(n%10===0||n===total) l_log(`Historie: ${n} / ${total}`);},window.FLOW_CONFIG || {},usrData,fetchBoardIssues);
         try { l_state.subtaskQuality = await RadixWorkflow.enrich(L_CFG.URL,candidates,RadixHistory.load,usrData,window.FLOW_CONFIG || {},(n,total)=>{if(n%10===0||n===total)l_log(`Subtaakhistorie: ${n} / ${total}`);}); } catch(e) { l_state.subtaskQuality={failed:true}; l_log('Subtaakhistorie niet volledig beschikbaar; primaire metingen blijven behouden.'); }
         l_log(`Historie afgerond: ${l_state.historyQuality.errors} ophaalfouten, ${l_state.historyQuality.incomplete} onvolledige of onbekende workflows.`);
+        const unknownNames=Object.keys(l_state.historyQuality.unknownStatuses||{});
+        if(unknownNames.length)l_log('Onbekende historische statussen: '+unknownNames.join(', '));
         l_state.raw = iss;
 
 
@@ -521,17 +528,17 @@ window.l_run = async function() {
 };
 
 const radixIssueIdentity = new WeakMap();
-window.RADIX_ENGINE_VERSION = "3.0.0-dev.10";
+window.RADIX_ENGINE_VERSION = window.RADIX_VERSION;
 const radixCardStats = {};
 function l_processData() {
     const dn = L_CFG.STATUS_DONE.map(s=>s.toLowerCase());
     const ty = t => { 
-        const tl=(t||"").toLowerCase(); 
-        if(L_CFG.TYPE_BUG.some(x => tl.includes(x))) return "Bug"; 
-        if(L_CFG.TYPE_STORY.some(x => tl.includes(x))) return "Story"; 
-        if(L_CFG.TYPE_TASK.some(x => tl.includes(x))) return "Task"; 
-        if(L_CFG.TYPE_EPIC && L_CFG.TYPE_EPIC.some(x => tl.includes(x))) return "Epic"; 
-        if(L_CFG.TYPE_SPIKE && L_CFG.TYPE_SPIKE.some(x => tl.includes(x))) return "Spike"; 
+        const tl=(t||"").trim().toLowerCase(); 
+        if(L_CFG.TYPE_BUG.some(x => tl === x)) return "Bug"; 
+        if(L_CFG.TYPE_STORY.some(x => tl === x)) return "Story"; 
+        if(L_CFG.TYPE_TASK.some(x => tl === x)) return "Task"; 
+        if(L_CFG.TYPE_EPIC && L_CFG.TYPE_EPIC.some(x => tl === x)) return "Epic"; 
+        if(L_CFG.TYPE_SPIKE && L_CFG.TYPE_SPIKE.some(x => tl === x)) return "Spike"; 
         return "Other"; 
     };
     const pD = s => s ? new Date(s) : null;
@@ -546,7 +553,6 @@ function l_processData() {
         const isD = i.radixHistory?.done ?? (override ? override==='done' : f.status?.statusCategory?.key ? f.status.statusCategory.key === "done" : dn.includes(statusName));
         
         const team = gF(f, L_CFG.F.team) ?? "Geen Team";
-        const summary = "";
         
         const c=pD(f.created);
         const h=i.radixHistory;
@@ -555,18 +561,17 @@ function l_processData() {
         const active=h?.done && h.start && h.finish ? h.intervals.filter(x=>x.state==='progress').reduce((sum,x)=>sum+(l_dif(x.from,x.to,true) ?? 0),0) : null;
         const lt=isD?l_dif(c,r):null, ct=isD?l_dif(ds,r):null;
         
-        const displayKey = "";
-        const displayAssignee = "";
-        const displayTeam = typeof team === "object" ? String(team.name ?? team.title ?? team.id ?? "Geen Team") : String(team);
+        const teams = [...new Set((Array.isArray(team)?team:[team]).map(v=>v && typeof v === "object" ? String(v.value ?? v.name ?? v.title ?? v.id ?? "") : String(v ?? "")).filter(Boolean))];
+        if(!teams.length)teams.push("Geen Team");
 
         const currentCategory=['todo','progress','done'].includes(override)?override:({new:'todo',indeterminate:'progress',done:'done'})[f.status?.statusCategory?.key];
-        const row = { history:h || null, currentCategory, missingStartReason:h?.start||i.radixSubtaskStart?null:!h?"historie ontbreekt of onvolledig":h.done?"geen actieve status geregistreerd":"nog niet gestart of geen actieve status geregistreerd", startSource:h?.start?'history':i.radixSubtaskStart?'subtask':'unknown', key:displayKey, summary, t, isD, assignee:displayAssignee, team:displayTeam, sp:parseFloat(gF(f,L_CFG.F.sp))||0, c, r, ds, lt, ct, mtr:(isD&&t==="Bug")?l_dif(c,r):null, qt:l_dif(c,ds), age:(!isD&&ds)?l_dif(ds,new Date()):null, active, reopened:i.radixHistory?.reopened ?? null, fe:(ct!==null&&lt>0&&active!==null)?Math.min(100,active/l_dif(c,r,true)*100):null };
+        const row = { history:h || null, currentCategory, missingStartReason:h?.start||i.radixSubtaskStart?null:!h?"historie ontbreekt of onvolledig":h.done?"geen actieve status geregistreerd":"nog niet gestart of geen actieve status geregistreerd", startSource:h?.start?'history':i.radixSubtaskStart?'subtask':'unknown', t, isD, team:teams[0], teams, sp:parseFloat(gF(f,L_CFG.F.sp))||0, c, r, ds, lt, ct, mtr:(isD&&t==="Bug")?l_dif(c,r):null, qt:l_dif(c,ds), age:(!isD&&ds)?l_dif(ds,new Date()):null, active, reopened:i.radixHistory?.reopened ?? null, fe:(ct!==null&&lt>0&&active!==null)?Math.min(100,active/l_dif(c,r,true)*100):null };
         radixIssueIdentity.set(row, String(i.key || ""));
         return row;
     }).filter(d => d !== null && (d.t === 'Story' || d.t === 'Bug'));
 
     const types = [...new Set(l_state.processed.map(d=>d.t))].sort();
-    const teams = [...new Set(l_state.processed.map(d=>d.team))].filter(Boolean).sort();
+    const teams = [...new Set(l_state.processed.flatMap(d=>d.teams))].filter(Boolean).sort();
     
     const fType = l_get('f_type');
     const fTeam = l_get('f_team');
@@ -590,7 +595,7 @@ window.l_applyFilters = function() {
 
     l_state.filtered = l_state.processed.filter(d => {
         if(l_state.filters.type && d.t !== l_state.filters.type) return false;
-        if(l_state.filters.team && d.team !== l_state.filters.team) return false;
+        if(l_state.filters.team && !d.teams.includes(l_state.filters.team)) return false;
         
         if(!RadixConfig.includesIssue(d,minDate)) return false;
         return true;
@@ -602,7 +607,7 @@ window.l_applyFilters = function() {
     const info = l_get('d-info');
     if(info) {
         info.textContent = `${l_state.processed.length} issues op bord · ${f.length} in filter · ${f.filter(x=>x.isD).length} afgerond · Data vanaf ${dStr} · Changelog`;
-        if (l_state.source === "history") { const q=l_state.historyQuality; info.textContent += ` · ${q.errors} ophaalfouten / ${q.incomplete} onvolledige workflows · ${f.filter(x=>x.isD&&x.ct!==null).length}/${f.filter(x=>x.isD).length} met Cycle Time`; }
+        if (l_state.source === "history" && l_state.historyQuality) { const q=l_state.historyQuality; const names=Object.keys(q.unknownStatuses||{});info.title=names.length?"Onbekende historische statussen: "+names.join(", ")+". Zie statusCategories in config.js.":""; info.textContent += ` · ${q.errors} ophaalfouten / ${q.incomplete} onvolledige workflows · ${f.filter(x=>x.isD&&x.ct!==null).length}/${f.filter(x=>x.isD).length} met Cycle Time`; }
     }
 
     l_drawDash();
@@ -621,14 +626,9 @@ window.l_openManual = function(sectionId) {
 
 function _renderManual(sectionId) {
     let html = window.FLOW_MANUAL_CONTENT;
-    html = html.replace(/\{\{C_STORY\}\}/g, L_CFG.colors.Story);
-    html = html.replace(/\{\{C_BUG\}\}/g, L_CFG.colors.Bug);
-    html = html.replace(/\{\{C_TASK\}\}/g, L_CFG.colors.Task);
-    html = html.replace(/\{\{C_EPIC\}\}/g, L_CFG.colors.Epic);
-    html = html.replace(/\{\{C_SPIKE\}\}/g, L_CFG.colors.Spike);
-    html = html.replace(/\{\{C_OTHER\}\}/g, L_CFG.colors.Other);
     
     l_get('l-man-modal-body').innerHTML = html;
+    if(l_get('l-man-search'))l_get('l-man-search').value='';
     
     if (sectionId) {
         setTimeout(() => {
@@ -655,34 +655,6 @@ function _renderAdvice(rows, containerDiv) {
     containerDiv.innerHTML=`<div class="l-card"><div class="c-tit">Teamreflectie ${hMark('man-advice')}</div><div class="c-sub">Observaties en gespreksvragen op basis van de huidige selectie · geen beoordeling of benchmark</div><div class="radix-advice-grid">${notes.map(n=>`<article><h4>${l_esc(n.title)}</h4><p><strong>Observatie:</strong> ${l_esc(n.fact)}</p><p class="m-caption">${l_esc(n.limit)}</p><p><strong>Gespreksvraag:</strong> ${l_esc(n.question)}</p><p><strong>Mogelijke vervolgstap:</strong> ${l_esc(n.experiment)}</p></article>`).join('')}</div></div>`;
 }
 
-window.l_openModal = function(k, label) {
-    return; // individuele issuegegevens niet in deze teamweergave
-
-    if (!window._l_modalData) return;
-    const dObj = window._l_modalData[k];
-    if(!dObj || !dObj.vals.length) return;
-    
-    const fmt = dObj.fmt;
-    const rows = dObj.vals.sort((a,b) => b._v - a._v);
-    
-    l_get('l-modal-title').innerText = `${label} per issue`;
-    l_get('l-modal-sub').innerText = `${rows.length} issues gesorteerd`;
-    
-    let h = `<table class="l-tbl"><thead><tr><th style="width:20px"></th><th>Issue</th><th>Samenvatting</th><th style="text-align:right">${label}</th></tr></thead><tbody>`;
-    rows.forEach(r => {
-        h += `<tr>
-            <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${l_col(r.t)}"></span></td>
-            <td style="font-family:monospace; font-weight:bold; color:#0052CC;">${l_esc(r.key)}</td>
-            <td style="color:#6B778C;">${l_esc(r.summary)}</td>
-            <td style="text-align:right; font-weight:bold; color:#172B4D;">${fmt(r._v)}</td>
-        </tr>`;
-    });
-    h += `</tbody></table>`;
-    
-    l_get('l-modal-body').innerHTML = h;
-    l_show('l-modal-overlay');
-};
-
 window.l_openMCModal = function(type) {
     if (!window._l_mcData) return;
     const data = window._l_mcData[type];
@@ -693,12 +665,12 @@ window.l_openMCModal = function(type) {
     const color = isSP ? "#FFAB00" : "#0052CC";
 
     l_get('l-modal-title').innerText = `Monte Carlo Voorspelling (${label})`;
-    l_get('l-modal-sub').innerText = `Hoe de Blackbox werkt (Op basis van de Carlo module)`;
+    l_get('l-modal-sub').innerText = `Hoe de Monte Carlo-simulatie werkt`;
 
     let h = `
         <div style="padding: 20px; box-sizing: border-box;">
             <div style="padding: 15px; background: #E9F2FF; border-radius: 4px; color: #172B4D; margin-bottom: 20px; font-size: 13px; border-left: 4px solid #0052CC;">
-                <strong>De Blackbox Geopend:</strong> In plaats van een simpel gemiddelde te nemen, kijkt het Monte Carlo algoritme naar de historische resultaten hieronder (input). Vervolgens simuleren we de komende periode <strong>10.000 keer</strong> door willekeurig uit dit verleden te 'trekken'. Dit geeft een modelmatige kansverdeling onder de aanname dat de historische doorvoer representatief blijft. Het is geen garantie.
+                <strong>De simulatie:</strong> In plaats van een simpel gemiddelde te nemen, kijkt het Monte Carlo algoritme naar de historische resultaten hieronder (input). Vervolgens simuleren we de komende periode <strong>10.000 keer</strong> door willekeurig uit dit verleden te 'trekken'. Dit geeft een modelmatige kansverdeling onder de aanname dat de historische doorvoer representatief blijft. Het is geen garantie.
             </div>
             
             <h4 style="margin-bottom: 8px; color: #172B4D;">1. Historische Input (Afgelopen periodes)</h4>
@@ -804,7 +776,6 @@ function groupItemsByPeriod(itemsToGroup, pD, countSp = false, completeOnly=fals
 window.l_drawDash = async function() {
     const dta = l_state.filtered;
     if (!dta) return;
-    window._l_modalData = {};
     window._l_mcData = {}; 
 
     const MT = [
@@ -848,7 +819,6 @@ window.l_drawDash = async function() {
             const distLeg = tArr.map(([t,n]) => `<span style="font-size:10px; color:#6B778C; display:inline-flex; align-items:center; gap:4px; margin-right:8px;"><span style="width:6px;height:6px;border-radius:50%;background:${l_col(t)}"></span>${l_esc(t)} <strong style="color:#172B4D">${n}</strong> <span style="opacity:0.6">(${Math.round(n/rawVals.length*100)}%)</span></span>`).join("");
             const distHtml = `<div style="margin-top:10px; padding-top:10px;"><div style="display:flex; height:6px; border-radius:3px; overflow:hidden; margin-bottom:6px; gap:1px;">${distBar}</div><div>${distLeg}</div></div>`;
 
-            window._l_modalData[m.k] = { vals: valsObj, fmt: fmt };
 
             return `<div class="m-crd" data-metric="${m.k}" style="--ac:${m.c}">
                 <div class="metric-kind">Flow metric</div><div class="l-flex-b m-tit" style="margin-bottom:2px;"><span>${m.l} ${hMark(m.id)}</span><span class="m-cnt">${rawVals.length} issues</span></div>
@@ -926,24 +896,16 @@ window.l_drawDash = async function() {
     }
 
     const minDateRaw = l_get('l_dat') && l_get('l_dat').value ? new Date(l_get('l_dat').value+'T00:00:00') : new Date('2000-01-01');
-    const inflow = dta.filter(d => d.c && d.c >= minDateRaw).length;
-    const outflow = dta.filter(d => d.isD && d.r && d.r >= minDateRaw).length;
-    
-    const validSprints = (l_state.sprints || []).filter(s => s.state === 'closed' && s.startDate && new Date(s.startDate) >= minDateRaw);
-    let numPeriods = validSprints.length;
-    if (numPeriods === 0) {
-        const days = Math.max(1, (new Date() - minDateRaw) / 86400000);
-        numPeriods = Math.max(1, Math.round(days / 14));
-    }
-
-    if (inflow > 0 || outflow > 0) {
+    const stab = l_stability(dta,minDateRaw,new Date(),l_state.sprints||[],pD);
+    const {inflow,outflow,numPeriods,mode:stabMode}=stab;
+    if (numPeriods && (inflow > 0 || outflow > 0)) {
         const stabPct = inflow > 0 ? (outflow / inflow) * 100 : null;
         
         let stabColor = "#36B37E";
-        let stabText = "Stabiel (Aanvoer ≈ Afvoer)";
+        let stabText = "Instroom en uitstroom ongeveer gelijk";
         if (stabPct === null) { stabColor="#6B778C"; stabText="Geen instroom: verhouding niet gedefinieerd"; }
-        else if (stabPct < 85) { stabColor = "#FF5630"; stabText = "Backlog groeit (In > Uit)"; }
-        else if (stabPct > 115) { stabColor = "#FFAB00"; stabText = "Backlog krimpt (Uit > In)"; }
+        else if (stabPct < 85) { stabColor = "#FF5630"; stabText = "Meer instroom dan uitstroom binnen selectie"; }
+        else if (stabPct > 115) { stabColor = "#FFAB00"; stabText = "Meer uitstroom dan instroom binnen selectie"; }
 
         const inPerSprint = (inflow / numPeriods).toFixed(1);
         const outPerSprint = (outflow / numPeriods).toFixed(1);
@@ -952,8 +914,8 @@ window.l_drawDash = async function() {
             <div class="l-flex-b"><span class="m-tit" style="margin:0">STABILITEITS INDEX ${hMark('man-stab')}</span><span class="m-cnt">Inflow vs Outflow</span></div>
             <div class="ti-val" style="color:${stabColor}">${stabPct===null?"–":stabPct.toFixed(0)+"%"}</div>
             <div class="ti-trk"><div class="ti-fil" style="width:${stabPct===null?0:Math.min(100,stabPct)}%; background:${stabColor}"></div></div>
-            <div class="ti-row" style="margin-top:12px;"><span>Nieuw per sprint (gem)</span><strong>${inPerSprint}</strong></div>
-            <div class="ti-row" style="border-top:none; padding-top:4px; margin-top:0;"><span>Afgerond per sprint (gem)</span><strong>${outPerSprint}</strong></div>
+            <div class="ti-row" style="margin-top:12px;"><span>Nieuw per ${stabMode} (gem)</span><strong>${inPerSprint}</strong></div>
+            <div class="ti-row" style="border-top:none; padding-top:4px; margin-top:0;"><span>Afgerond per ${stabMode} (gem)</span><strong>${outPerSprint}</strong></div>
             <div style="font-size:11px; color:#6B778C; margin-top:12px; line-height:1.4;">${stabText}</div>
         </div>`;
     }

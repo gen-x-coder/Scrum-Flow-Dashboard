@@ -30,17 +30,24 @@ function l_metricStats(values,outlier) {
 function l_periodBuckets(items, period, from, now, sprints=[], countSp=false, completeOnly=false) {
     if(!Number.isFinite(+from)||!Number.isFinite(+now)||from>=now)return [];
     const buckets=[]; let mode=period===14?'2 weken':period===7?'week':'maand';
-    const closed=sprints.filter(s=>s.state==='closed').map(s=>({start:new Date(s.startDate),end:new Date(s.completeDate||s.endDate),id:s.id})).filter(s=>Number.isFinite(+s.start)&&Number.isFinite(+s.end)&&s.start<s.end&&s.end>from&&s.start<now).sort((a,b)=>a.start-b.start||a.end-b.end);
-    // Overlapping sprints cannot be uniquely attributed by completion date; use fixed calendar periods instead.
-    const overlap=closed.some((s,i)=>i>0&&s.start<closed[i-1].end);
-    if(period===14&&closed.length&&!overlap){
-        mode='sprint';for(const s of closed)if(!completeOnly||(s.start>=from&&s.end<=now))buckets.push({start:s.start,end:s.end,d:s.end,t:{},_total:0});
+    const scheduled=sprints.filter(s=>s.state==='closed'||s.state==='active').map(s=>({start:new Date(s.startDate),end:s.state==='active'?now:new Date(s.completeDate||s.endDate),id:s.id,active:s.state==='active'})).filter(s=>Number.isFinite(+s.start)&&Number.isFinite(+s.end)&&s.start<s.end&&s.end>from&&s.start<now).sort((a,b)=>a.start-b.start||a.end-b.end);
+    const overlap=scheduled.some((s,i)=>i>0&&s.start<scheduled[i-1].end);
+    if(period===14&&scheduled.length&&!overlap){
+        mode='sprint';let cursor=from;
+        const add=(start,end,kind)=>{if(end>start)buckets.push({start,end,d:end,t:{},_total:0,kind});};
+        for(const s of scheduled){
+            if(!completeOnly&&s.start>cursor)add(cursor,s.start,'gap');
+            const start=new Date(Math.max(+from,+s.start)),end=new Date(Math.min(+now,+s.end));
+            if(!completeOnly||(!s.active&&s.start>=from&&s.end<=now))add(start,end,s.active||s.start<from||s.end>now?'partial':'complete');
+            cursor=end;
+        }
+        if(!completeOnly&&cursor<now)add(cursor,now,'gap');
     }else{
         const start=new Date(from);start.setHours(0,0,0,0);
         if(period===30)start.setDate(1);else{start.setDate(start.getDate()-((start.getDay()+6)%7));if(period===14){const day=Date.UTC(start.getFullYear(),start.getMonth(),start.getDate())/86400000;const anchor=Date.UTC(2020,0,6)/86400000;if(((Math.floor((day-anchor)/7)%2)+2)%2)start.setDate(start.getDate()-7);}}
-        for(let a=start;a<now;){const b=new Date(a);if(period===30)b.setMonth(b.getMonth()+1);else b.setDate(b.getDate()+period);if(!completeOnly||(a>=from&&b<=now))buckets.push({start:a,end:b,d:a,t:{},_total:0});a=b;}
+        for(let a=start;a<now;){const b=new Date(a);if(period===30)b.setMonth(b.getMonth()+1);else b.setDate(b.getDate()+period);if(!completeOnly||(a>=from&&b<=now))buckets.push({start:a,end:b,d:a,t:{},_total:0,kind:a<from||b>now?'partial':'complete'});a=b;}
     }
-    for(const item of items){if(!item.r||item.r<from||item.r>now)continue;const b=buckets.find(x=>item.r>=x.start&&item.r<x.end);if(!b)continue;b.t[item.t]=(b.t[item.t]||0)+1;b._total+=countSp?(Number.isFinite(item.sp)&&item.sp>0?item.sp:0):1;}
+    for(const item of items){if(!item.r||item.r<from||item.r>now)continue;const b=buckets.find(x=>item.r>=x.start&&(item.r<x.end||(!completeOnly&&+item.r===+now&&+x.end===+now)));if(!b)continue;b.t[item.t]=(b.t[item.t]||0)+1;b._total+=countSp?(Number.isFinite(item.sp)&&item.sp>0?item.sp:0):1;}
     buckets.mode=mode;return buckets;
 }
 
@@ -82,4 +89,11 @@ function l_forecastCompletion(samples, remaining, random=Math.random) {
     for(let i=0;i<10000;i++) {let left=remaining,n=0;while(left>0&&n<horizon){left-=weeks[Math.floor(random()*weeks.length)];n++;}runs.push(left>0?Infinity:n);}
     runs.sort((a,b)=>a-b);const q=p=>{const n=runs[Math.ceil(p*runs.length)-1];return Number.isFinite(n)?n:null;};
     return {p50:q(.5),p85:q(.85),p95:q(.95)};
+}
+
+// Inflow and outflow share exactly the same complete time intervals.
+function l_stability(rows,from,now,sprints,period=14){
+    const buckets=l_periodBuckets([],period,from,now,sprints,false,true);
+    const inside=d=>d&&buckets.some(b=>d>=b.start&&d<b.end);
+    return {inflow:rows.filter(x=>inside(x.c)).length,outflow:rows.filter(x=>x.isD&&inside(x.r)).length,numPeriods:buckets.length,mode:buckets.mode||'periode'};
 }

@@ -1,4 +1,4 @@
-/*! Radix — MIT License; see LICENSE. */
+/*! Radix — MIT License; see LICENSE. Copyright (c) Lucas Bonsel. */
 // Pure team-level observations. No identity fields, network calls, storage or scoring.
 const RadixAdvice = (() => {
     const finite = v => Number.isFinite(v) && v >= 0;

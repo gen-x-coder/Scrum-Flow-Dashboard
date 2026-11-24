@@ -39,10 +39,11 @@ const RadixHistoryCache = (() => {
     function open() {
         return new Promise((resolve,reject)=>{
             const req=indexedDB.open(DB,1);
-            const timer=setTimeout(()=>reject(new Error('IndexedDB timeout')),4000);
+            let expired=false;
+            const timer=setTimeout(()=>{expired=true;reject(new Error('IndexedDB timeout'));},4000);
             req.onupgradeneeded=()=>req.result.createObjectStore('history',{keyPath:'key'});
-            req.onerror=req.onblocked=()=>{clearTimeout(timer);reject(new Error('IndexedDB niet beschikbaar'));};
-            req.onsuccess=()=>{clearTimeout(timer);resolve(req.result);};
+            req.onerror=req.onblocked=()=>{expired=true;clearTimeout(timer);reject(new Error('IndexedDB niet beschikbaar'));};
+            req.onsuccess=()=>{clearTimeout(timer);if(expired){req.result.close();return;}resolve(req.result);};
         });
     }
     function transact(db,mode,fn) {
