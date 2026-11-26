@@ -1,0 +1,73 @@
+name: Radix release
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - dashboard.js
+      - .github/workflows/release.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bundle.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and verify
+        id: bundle
+        shell: bash
+        run: |
+          version="$(python3 build.py --print-version)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            python3 build.py --version "${GITHUB_REF_NAME#v}"
+          else
+            python3 build.py
+          fi
+          for file in *.js dist/radix.js; do node --check "$file"; done
+          node --test tests/*.test.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: radix
+          path: |
+            dist/radix.js
+            config.example.js
+            LICENSE
+          if-no-files-found: error
+  publish:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: radix
+          path: package
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+        shell: bash
+        run: |
+          tag="v$VERSION"
+          assets=(package/dist/radix.js package/config.example.js package/LICENSE)
+          flags=(--title "Radix $VERSION" --generate-notes)
+          if [[ "$VERSION" == *-* ]]; then flags+=(--prerelease); fi
+          if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            # A version bump on main publishes only a new version, never replaces an existing tag.
+            if gh release view "$tag" >/dev/null 2>&1 || gh api "repos/$GH_REPO/git/ref/tags/$tag" >/dev/null 2>&1; then
+              echo "$tag already exists; existing release is unchanged."
+              exit 0
+            fi
+            gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA" "${flags[@]}"
+          elif gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" --verify-tag "${flags[@]}"
+          fi

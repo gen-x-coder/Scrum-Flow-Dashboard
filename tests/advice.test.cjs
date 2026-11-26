@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const ctx=vm.createContext({Date,Number,Math});vm.runInContext(fs.readFileSync(path.join(__dirname,'../advice.js'),'utf8')+'\nthis.A=RadixAdvice;',ctx);
+const A=ctx.A,from=new Date('2025-01-01'),now=new Date('2025-02-01');
+assert.equal(A.inspect([])[0].title,'Geen gegevens');
+const rows=Array.from({length:12},(_,i)=>({isD:true,ct:i,lt:i+1,qt:1,fe:50,reopened:i===0?1:0,startSource:i===0?'subtask':'history',c:from,r:now,key:'SECRET-123',assignee:'PRIVATE NAME'}));
+const result=A.inspect(rows,{from,now,diff:(a,b)=>(b-a)/86400000});
+assert(result.some(n=>n.title==='Variatie in Cycle Time'));assert(result.some(n=>n.title==='Heropeningen'&&n.fact.includes('1 van de 12')));assert(result.some(n=>n.fact.includes('1 Cycle Time-meting is de start afgeleid uit subtaken')));assert(!JSON.stringify(result).includes('SECRET'));assert(!JSON.stringify(result).includes('PRIVATE NAME'));
+assert(!A.inspect([{isD:true,ct:null,fe:null,lt:1,qt:null}]).some(n=>n.title==='Variatie in Cycle Time'));
+assert(A.inspect([{isD:true,ct:null,fe:null,lt:1,qt:null}])[0].fact.includes('Cycle Time bij 0 items'));
+console.log('Advice tests passed.');

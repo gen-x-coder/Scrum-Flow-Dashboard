@@ -83,10 +83,11 @@ function injectFlowCSS() {
         #radix-app .radix-chart-legend {display:flex;flex-wrap:wrap;gap:8px 16px;margin:8px 0;color:#42526E;font-size:11px;}
         #radix-app .radix-chart-legend span {display:inline-flex;align-items:center;gap:5px;}
         #radix-app .radix-chart-legend i {display:inline-block;flex:none;width:10px;height:10px;border-radius:2px;}
-        #radix-app .radix-advice-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:12px;}
-        #radix-app .radix-advice-grid article {border:1px solid #DFE1E6;border-radius:6px;padding:14px;line-height:1.5;font-size:12px;color:#42526E;}
-        #radix-app .radix-advice-grid p {margin:6px 0;}
-        #radix-app .radix-advice-grid h4 {margin:0 0 8px;font-size:14px;color:#172B4D;}
+        #radix-app .radix-advice-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:24px;color:#42526E;font-size:13px;line-height:1.7;}
+        #radix-app .radix-advice-grid p {margin:0 0 14px;}
+        #radix-app .radix-advice-grid h4 {margin:0 0 12px;font-size:14px;color:#172B4D;}
+        #radix-app .radix-advice-grid li {margin-bottom:12px;}
+        #radix-app .radix-advice-grid small {display:block;color:#6B778C;font-size:12px;line-height:1.5;}
         #radix-app .metric-kind {font-size:10px; color:#6B778C; letter-spacing:.03em; margin-bottom:5px;}
         #radix-app #l-card-grid > div > .l-card { margin-bottom:0; min-width:0; }
         #radix-app #l-chart-grid > .l-card { margin-bottom:0; min-width:0; }
@@ -527,9 +528,6 @@ window.l_run = async function() {
     }
 };
 
-const radixIssueIdentity = new WeakMap();
-window.RADIX_ENGINE_VERSION = window.RADIX_VERSION;
-const radixCardStats = {};
 function l_processData() {
     const dn = L_CFG.STATUS_DONE.map(s=>s.toLowerCase());
     const ty = t => { 
@@ -566,7 +564,6 @@ function l_processData() {
 
         const currentCategory=['todo','progress','done'].includes(override)?override:({new:'todo',indeterminate:'progress',done:'done'})[f.status?.statusCategory?.key];
         const row = { history:h || null, currentCategory, missingStartReason:h?.start||i.radixSubtaskStart?null:!h?"historie ontbreekt of onvolledig":h.done?"geen actieve status geregistreerd":"nog niet gestart of geen actieve status geregistreerd", startSource:h?.start?'history':i.radixSubtaskStart?'subtask':'unknown', t, isD, team:teams[0], teams, sp:parseFloat(gF(f,L_CFG.F.sp))||0, c, r, ds, lt, ct, mtr:(isD&&t==="Bug")?l_dif(c,r):null, qt:l_dif(c,ds), age:(!isD&&ds)?l_dif(ds,new Date()):null, active, reopened:i.radixHistory?.reopened ?? null, fe:(ct!==null&&lt>0&&active!==null)?Math.min(100,active/l_dif(c,r,true)*100):null };
-        radixIssueIdentity.set(row, String(i.key || ""));
         return row;
     }).filter(d => d !== null && (d.t === 'Story' || d.t === 'Bug'));
 
@@ -652,7 +649,8 @@ window.l_searchManual = function() {
 
 function _renderAdvice(rows, containerDiv) {
     const notes=RadixAdvice.inspect(rows,{from:new Date((l_get('l_dat')?.value||'2000-01-01')+'T00:00:00'),diff:l_dif,unit:l_state.settings.workdays==='workdays'?'werkdagen':'kalenderdagen'});
-    containerDiv.innerHTML=`<div class="l-card"><div class="c-tit">Teamreflectie ${hMark('man-advice')}</div><div class="c-sub">Observaties en gespreksvragen op basis van de huidige selectie · geen beoordeling of benchmark</div><div class="radix-advice-grid">${notes.map(n=>`<article><h4>${l_esc(n.title)}</h4><p><strong>Observatie:</strong> ${l_esc(n.fact)}</p><p class="m-caption">${l_esc(n.limit)}</p><p><strong>Gespreksvraag:</strong> ${l_esc(n.question)}</p><p><strong>Mogelijke vervolgstap:</strong> ${l_esc(n.experiment)}</p></article>`).join('')}</div></div>`;
+    const actions=notes.filter(n=>n.experiment);
+    containerDiv.innerHTML=`<div class="l-card"><div class="c-tit">Teamreflectie ${hMark('man-advice')}</div><div class="c-sub">Wat valt op in de huidige selectie? · Geen beoordeling of benchmark</div><div class="radix-advice-grid"><section><h4>Beeld van het team</h4>${notes.map(n=>`<p><strong>${l_esc(n.title)}.</strong> ${l_esc(n.fact)}${n.limit?`<small>${l_esc(n.limit)}</small>`:''}</p>`).join('')}</section>${actions.length?`<section><h4>Voorgestelde acties</h4><ul style="margin:0;padding-left:20px">${actions.map(n=>`<li><strong>${l_esc(n.title)}:</strong> ${l_esc(n.experiment)}</li>`).join('')}</ul></section>`:''}</div></div>`;
 }
 
 window.l_openMCModal = function(type) {
@@ -806,11 +804,10 @@ window.l_drawDash = async function() {
                 </div>
             </div>`;
 
-            if (!valsObj.length) { radixCardStats[m.k] = null; return noDataHtml; }
+            if (!valsObj.length) return noDataHtml;
             
             const rawVals=valsObj.map(x=>x._v);
             const stats=l_metricStats(rawVals,m.k === "fe" ? "" : l_state.settings.outlier);
-            radixCardStats[m.k] = stats;
             const {min,max,avg}=stats;
             const pts = (L_CFG.pcts||[50,85,95]).map(p=>`<span class="l-flex"><span class="p-dot" style="background:${L_CFG.pctColors[p]}"></span>P${p}: <strong style="color:#172B4D">${fmt(stats['p'+p])}</strong></span>`).join("");
             const tCnt = {}; valsObj.forEach(x => { tCnt[x.t] = (tCnt[x.t]||0)+1; });

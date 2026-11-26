@@ -1,0 +1,9 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const records=new Map(); let calls=0, cacheDown=false;
+const todo={id:'1',name:'Open',statusCategory:{key:'new'}},done={id:'2',name:'Done',statusCategory:{key:'done'}};
+const fields={created:'2025-01-01T00:00:00Z',updated:'2025-01-03T00:00:00Z',status:done};
+const cache={connect:async(base,user)=>({get:async i=>{if(cacheDown)throw Error('unavailable');return records.get(JSON.stringify([base,user.key,i.key,i.fields.updated]));},put:async(i,h)=>{if(cacheDown)throw Error('unavailable');records.set(JSON.stringify([base,user.key,i.key,i.fields.updated]),h);},close(){}})};
+const ctx=vm.createContext({Date,Map,Set,Number,String,Object,Array,Promise,setTimeout,RadixHistoryCache:cache,fetch:async url=>({ok:true,json:async()=>{if(url.endsWith('/status'))return[todo,done];calls++;return {fields:{...fields},changelog:{total:1,histories:[{created:'2025-01-02T00:00:00Z',items:[{field:'status',from:'1',to:'2'}]}]}};}})});
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../jira-api.js'),'utf8')+'\nthis.H=RadixHistory;',ctx);
+const run=(user='A',updated=fields.updated)=>ctx.H.load('https://jira.invalid',[{key:'X-1',fields:{...fields,updated}}],()=>{}, {},{key:user});
+(async()=>{let r=await run();assert.equal(r.requests,1);assert.equal(r.hits,0);r=await run();assert.equal(r.hits,1);assert.equal(r.requests,0);assert.equal(calls,1);r=await run('B');assert.equal(r.hits,0);r=await run('A','2025-01-04T00:00:00Z');assert.equal(r.hits,0);assert.equal(records.size,2);cacheDown=true;r=await run();assert.equal(r.errors,0);assert.equal(r.requests,1);console.log('Cache orchestration tests passed (mock storage): cold/warm, user isolation, updated mismatch, storage failure.');})().catch(e=>{console.error(e);process.exitCode=1;});

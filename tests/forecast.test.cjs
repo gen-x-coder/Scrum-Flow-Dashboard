@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const c=vm.createContext({Math,Number,Date});vm.runInContext(fs.readFileSync(path.join(__dirname,'../metrics.js'),'utf8')+'\nthis.forecast=l_forecastCompletion;',c);
+const f=c.forecast;
+assert.equal(f([3,3,3],10).p85,4);
+assert.equal(f([0,0,0],10),null);
+assert.equal(f([1,2],10),null);
+assert.equal(f([3,3,3],0),null);
+assert.equal(f([1,1,1],105).p95,null);
+assert.equal(f([0,1,1],1,()=>0).p50,null);
+assert.equal(f([0,1,1],1,()=>.5).p95,1);
+console.log('Completion forecast tests passed: fixed output, insufficient history, zero scope, zero weeks, censored horizon.');

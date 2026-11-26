@@ -1,0 +1,22 @@
+const assert=require('node:assert/strict'); const vm=require('node:vm'); const fs=require('node:fs'); const path=require('node:path');
+const ctx=vm.createContext({Date, Map, Set, Number, String, Object, Array, Promise, setTimeout});
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../jira-api.js'),'utf8')+'\nthis.H=RadixHistory;',ctx);
+const H=ctx.H, status=(id,name,key)=>({id,name,statusCategory:{key}});
+const todo=status('1','Open','new'), progress=status('2','Development','indeterminate'), done=status('3','Done','done'), wait=status('4','Waiting','new');
+const classify=H.classifier([todo,progress,done,wait]);
+const day=n=>`2025-01-${String(n).padStart(2,'0')}T00:00:00Z`;
+const event=(n,from,to)=>({created:day(n),items:[{field:'status',from:from.id,to:to.id,fromString:from.name,toString:to.name}]});
+const fields=s=>({created:day(1),status:s});
+let h=H.reconstruct(fields(done),[event(3,todo,progress),event(5,progress,done)],classify);
+assert.equal(+h.start,+new Date(day(3))); assert.equal(+h.finish,+new Date(day(5))); assert.equal(h.reopened,0);
+h=H.reconstruct(fields(done),[event(9,progress,done),event(3,todo,progress),event(5,progress,done),event(7,done,progress)],classify);
+assert.equal(h.reopened,1); assert.equal(+h.finish,+new Date(day(9))); assert.equal(h.intervals.filter(x=>x.state==='progress').reduce((a,x)=>a+(x.to-x.from)/86400000,0),4);
+h=H.reconstruct(fields(progress),[event(3,todo,progress),event(5,progress,done),event(7,done,progress)],classify); assert.equal(h.finish,null); assert.equal(h.done,false);
+h=H.reconstruct(fields(done),[event(5,todo,done)],classify); assert.equal(h.start,null);
+assert.equal(H.reconstruct(fields(done),[],classify),null);
+assert.equal(H.reconstruct(fields(done),[event(3,todo,progress)],classify),null);
+assert.equal(H.reconstruct(fields(done),[event(3,todo,{id:'99'}),event(5,progress,done)],classify),null);
+assert.equal(H.classifier([todo,progress],{statusCategories:{Development:'todo'}})('2','Development'),'todo');
+(async()=>{let calls=0; const fetcher=async url=>{calls++; const body=calls===1?{fields:fields(done),changelog:{total:2,histories:[{id:'1'}]}}:calls===2?{startAt:0,total:2,values:[{id:'1'}]}:{startAt:1,total:2,values:[{id:'2'}]}; return {ok:true,json:async()=>body};}; const data=await H.completeHistory('https://jira.invalid','TEST-1',fetcher);assert.equal(data.histories.length,2);assert.equal(calls,3); await assert.rejects(H.completeHistory('https://jira.invalid','TEST-1',async()=>({ok:true,json:async()=>({changelog:{total:3,histories:[]},total:3,values:[]})}))); console.log('History tests passed: 9 scenarios including pagination and incomplete history.');})().catch(e=>{console.error(e);process.exitCode=1});
+
+const recent=new Date(Date.now()+30000).toISOString();assert(H.reconstruct({created:day(1),status:progress},[{created:recent,items:[{field:'status',from:todo.id,to:progress.id,fromString:todo.name,toString:progress.name}]}],classify));
