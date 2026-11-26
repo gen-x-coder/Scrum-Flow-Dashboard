@@ -1,6 +1,6 @@
 # Radix — Scrum Flow Dashboard voor Jira
 
-**Versie: 3.1.0** · MIT · Copyright © 2026 Lucas Bonsel
+**Versie: 3.1.0**
 
 Radix is een Nederlandstalig flow-dashboard voor Scrum-teams. Het draait in de browser op een Confluence-pagina en leest Jira met de bestaande gebruikerssessie. Geen afzonderlijke backend, externe AI of individuele prestatiebeoordeling. De optionele lokale IndexedDB-cache bevat afgeleide statushistorie.
 
